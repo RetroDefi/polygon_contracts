@@ -92,17 +92,12 @@ contract Ownable is Context {
         emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
     }
-    function transferOwnershipMint(address newOwner) public virtual onlyOwner {
+
+    function transferOwnershipMint(address newOwner) public virtual onlyOwnerMint {  FOR TESTNET
         require(newOwner != address(0), "Ownable: new owner is the zero address");
         emit OwnershipTransferred(_ownermint, newOwner);
         _ownermint = newOwner;
     }
-
-    /*function transferOwnershipMint(address newOwner) public virtual onlyOwnerMint {  FOR TESTNET
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
-        emit OwnershipTransferred(_ownermint, newOwner);
-        _ownermint = newOwner;
-    }*/
 }
 
 pragma solidity ^0.6.2;
