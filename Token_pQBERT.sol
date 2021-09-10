@@ -92,12 +92,17 @@ contract Ownable is Context {
         emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
     }
-
-    function transferOwnershipMint(address newOwner) public virtual onlyOwnerMint {
+    function transferOwnershipMint(address newOwner) public virtual onlyOwner {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
         emit OwnershipTransferred(_ownermint, newOwner);
         _ownermint = newOwner;
     }
+
+    /*function transferOwnershipMint(address newOwner) public virtual onlyOwnerMint {  FOR TESTNET
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        emit OwnershipTransferred(_ownermint, newOwner);
+        _ownermint = newOwner;
+    }*/
 }
 
 pragma solidity ^0.6.2;
@@ -1333,7 +1338,8 @@ contract pQBERT is ERC20, Ownable {
         _devWallet = 0x7448d69060C8D6c75223c6286e889EFBd44a6a26;
         dividendTracker = new QBERTDividendTracker();
  
-        IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3);
+        //IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3);
+        IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x3eFe4806E5725EB3B48c57D13F845d6e701ACf75);
          // Create a uniswap pair for this new token
         address _uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory())
             .createPair(address(this), _uniswapV2Router.WETH());
@@ -1434,6 +1440,10 @@ contract pQBERT is ERC20, Ownable {
  
         emit SetAutomatedMarketMakerPair(pair, value);
     }
+
+    function blacklistAddress(address account, bool value) external onlyOwner{
+        _isBlacklisted[account] = value;
+    }
  
     function updateGasForProcessing(uint256 newValue) public onlyOwner {
         require(newValue >= 200000 && newValue <= 800000, "QBERT: gasForProcessing must be between 200,000 and 500,000");
@@ -1444,6 +1454,15 @@ contract pQBERT is ERC20, Ownable {
  
     function updateClaimWait(uint256 claimWait) external onlyOwner {
         dividendTracker.updateClaimWait(claimWait);
+    }
+    
+    function updateMinimumToken(uint256 minimumToken) external onlyOwner {
+        dividendTracker.updateMinimumToken(minimumToken);
+    }
+    
+    
+    function getMinHold() external view returns(uint256) {
+        return dividendTracker.minimumTokenBalanceForDividends();
     }
  
     function getClaimWait() external view returns(uint256) {
@@ -1465,6 +1484,10 @@ contract pQBERT is ERC20, Ownable {
     function dividendTokenBalanceOf(address account) public view returns (uint256) {
         return dividendTracker.balanceOf(account);
     }
+    
+    function excludeFromDividends(address account) external onlyOwner{
+	    dividendTracker.excludeFromDividends(account);
+	}
  
     function getAccountDividendsInfo(address account)
         external view returns (
@@ -1508,10 +1531,6 @@ contract pQBERT is ERC20, Ownable {
     function getNumberOfDividendTokenHolders() external view returns(uint256) {
         return dividendTracker.getNumberOfTokenHolders();
     }
-
-    function blacklistAddress(address account, bool value) external onlyOwner{
-        _isBlacklisted[account] = value;
-    }
  
     function setMarketingWallet(address newWallet) external onlyOwner{
         _marketingWallet = payable(newWallet);
@@ -1539,6 +1558,11 @@ contract pQBERT is ERC20, Ownable {
     function setSwapEnabled(bool value) external onlyOwner{
         swapEnabled = value;
     }
+    
+    function changeMinSwap(uint256 numToken) external onlyOwner{
+        swapTokensAtAmount = numToken * (10**18);
+    }
+    
  
     function _transfer(
         address from,
@@ -1700,6 +1724,7 @@ contract QBERTDividendTracker is DividendPayingToken, Ownable {
  
     event ExcludeFromDividends(address indexed account);
     event ClaimWaitUpdated(uint256 indexed newValue, uint256 indexed oldValue);
+    event minimumTokenBalanceUpdated(uint256 indexed newValue, uint256 indexed oldValue);
  
     event Claim(address indexed account, uint256 amount, bool indexed automatic);
  
@@ -1715,7 +1740,7 @@ contract QBERTDividendTracker is DividendPayingToken, Ownable {
     function withdrawDividend() public override {
         require(false, "QBERT_Dividend_Tracker: withdrawDividend disabled. Use the 'claim' function on the main QBERT contract.");
     }
- 
+    
     function excludeFromDividends(address account) external onlyOwner {
         require(!excludedFromDividends[account]);
         excludedFromDividends[account] = true;
@@ -1731,6 +1756,13 @@ contract QBERTDividendTracker is DividendPayingToken, Ownable {
         require(newClaimWait != claimWait, "QBERT_Dividend_Tracker: Cannot update claimWait to same value");
         emit ClaimWaitUpdated(newClaimWait, claimWait);
         claimWait = newClaimWait;
+    }
+    
+    function updateMinimumToken(uint256 newMinimumToken) external onlyOwner {
+        require(newMinimumToken >= 1, "QBERT_Dividend_Tracker: newMinimumToken more 1 token");
+        
+        emit minimumTokenBalanceUpdated(newMinimumToken, minimumTokenBalanceForDividends);
+        minimumTokenBalanceForDividends = newMinimumToken * (10**18);
     }
  
     function getLastProcessedIndex() external view returns(uint256) {
